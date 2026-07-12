@@ -2,8 +2,6 @@
 
 LLM Debate is a real-time multi-agent debate simulator. A Go backend orchestrates two alternating AI personas over WebSocket, and a React frontend renders live streamed tokens in a split arena.
 
-The app is designed to be easy to try from a zip. If no API key is configured, it runs with deterministic mock AI responses.
-
 ## Requirements
 
 - Go 1.26.4 or newer
