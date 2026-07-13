@@ -6,7 +6,7 @@ LLM Debate is a real-time multi-agent debate simulator. A Go backend orchestrate
 
 - Go 1.26.4 or newer
 - Node.js 20 or newer and npm for setup, tests, frontend rebuilds, and packaging
-- Optional: `OPENAI_API_KEY` for live OpenAI streaming
+- Optional: OpenAI or Cursor credentials when `AI_PROVIDER` is `openai` or `cursor`
 
 For a packaged zip that already contains `frontend/dist`, the mock demo path only needs Go.
 
@@ -41,9 +41,9 @@ Open:
 http://localhost:8080
 ```
 
-Mock mode is automatic when `OPENAI_API_KEY` is not set.
+Mock mode is the default when `AI_PROVIDER` is unset or set to `mock`.
 
-## Run With Real OpenAI Streaming
+## Choose An AI Provider
 
 Copy the example environment file:
 
@@ -51,19 +51,48 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Edit `.env`, then start the server:
+Set `AI_PROVIDER` to one of:
+
+- `mock` (default): deterministic local responses, no API key
+- `openai`: live OpenAI Responses streaming
+- `cursor`: live streaming via an OpenAI-compatible Cursor base URL
+
+### OpenAI
+
+```bash
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-5.5
+```
+
+### Cursor
+
+Point at an OpenAI-compatible `/v1` endpoint (for example a local Cursor proxy):
+
+```bash
+AI_PROVIDER=cursor
+CURSOR_API_KEY=...
+CURSOR_BASE_URL=http://127.0.0.1:9000/v1
+CURSOR_MODEL=composer-2.5
+```
+
+Then start the server:
 
 ```bash
 ./scripts/run.sh
 ```
 
-Values passed directly in the shell, such as `ADDR=:8090 ./scripts/run.sh`, override `.env`.
+Values passed directly in the shell, such as `ADDR=127.0.0.1:8090 AI_PROVIDER=openai ./scripts/run.sh`, override `.env`.
 
 Available environment variables:
 
-- `ADDR`: backend listen address, default `:8080`
-- `OPENAI_API_KEY`: enables live OpenAI streaming when set
+- `ADDR`: backend listen address, default `127.0.0.1:8080` (loopback only; use `ADDR=:8080` to bind all interfaces)
+- `AI_PROVIDER`: `mock` (default), `openai`, or `cursor`
+- `OPENAI_API_KEY`: required when `AI_PROVIDER=openai`
 - `OPENAI_MODEL`: OpenAI model, default `gpt-5.5`
+- `CURSOR_API_KEY`: required when `AI_PROVIDER=cursor`
+- `CURSOR_BASE_URL`: required OpenAI-compatible `/v1` root when `AI_PROVIDER=cursor`
+- `CURSOR_MODEL`: Cursor model, default `composer-2.5`
 
 ## Useful Commands
 
@@ -133,7 +162,13 @@ http://127.0.0.1:5173
 If port `8080` is already in use, choose another port:
 
 ```bash
-ADDR=:8090 ./scripts/run.sh
+ADDR=127.0.0.1:8090 ./scripts/run.sh
+```
+
+To expose the demo beyond this machine (not recommended with live AI providers):
+
+```bash
+ADDR=:8080 ./scripts/run.sh
 ```
 
 If frontend dependencies are missing or stale:
@@ -149,10 +184,10 @@ rm -rf frontend/dist
 ./scripts/run.sh
 ```
 
-If OpenAI calls fail, unset the key to return to mock mode:
+If live provider calls fail, switch back to mock mode:
 
 ```bash
-OPENAI_API_KEY= ./scripts/run.sh
+AI_PROVIDER=mock ./scripts/run.sh
 ```
 
 Or remove the local `.env` file:

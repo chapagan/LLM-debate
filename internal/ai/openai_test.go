@@ -8,6 +8,20 @@ import (
 	"testing"
 )
 
+func TestDefaultHTTPClientSetsResponseHeaderTimeout(t *testing.T) {
+	client := defaultHTTPClient()
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("transport type = %T", client.Transport)
+	}
+	if transport.ResponseHeaderTimeout != defaultResponseHeaderTimeout {
+		t.Fatalf("ResponseHeaderTimeout = %v, want %v", transport.ResponseHeaderTimeout, defaultResponseHeaderTimeout)
+	}
+	if client.Timeout != 0 {
+		t.Fatalf("Timeout = %v, want 0 for streaming", client.Timeout)
+	}
+}
+
 func TestMockStreamerEmitsDeterministicChunks(t *testing.T) {
 	streamer := NewMockStreamer()
 	var chunks []string

@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"sync"
@@ -15,17 +16,41 @@ import (
 )
 
 type Client struct {
-	conn          *websocket.Conn
-	send          chan protocol.OutboundEvent
-	sessionCancel context.CancelFunc
-	mu            sync.Mutex
-	sendMu        sync.Mutex
-	closed        bool
+	conn                   *websocket.Conn
+	send                   chan protocol.OutboundEvent
+	sessionCancel          context.CancelFunc
+	mu                     sync.Mutex
+	sendMu                 sync.Mutex
+	closed                 bool
+	lastDebateStart        time.Time
+	debateStartMinInterval time.Duration
 }
 
+const defaultDebateStartMinInterval = 10 * time.Second
+
 func NewClient(conn *websocket.Conn) *Client {
-	return &Client{conn: conn, send: make(chan protocol.OutboundEvent, 32)}
+	return &Client{
+		conn:                   conn,
+		send:                   make(chan protocol.OutboundEvent, 32),
+		debateStartMinInterval: defaultDebateStartMinInterval,
+	}
 }
+
+func (c *Client) tryStartDebate(now time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	interval := c.debateStartMinInterval
+	if interval <= 0 {
+		interval = defaultDebateStartMinInterval
+	}
+	if !c.lastDebateStart.IsZero() && now.Sub(c.lastDebateStart) < interval {
+		return errDebateRateLimited
+	}
+	c.lastDebateStart = now
+	return nil
+}
+
+var errDebateRateLimited = errors.New("debate start rate limited; wait before starting another debate")
 
 func (c *Client) setSession(cancel context.CancelFunc) {
 	c.mu.Lock()
@@ -48,10 +73,21 @@ func (c *Client) cancelSession() {
 type Hub struct {
 	mu      sync.Mutex
 	clients map[*Client]struct{}
+	limiter *DebateStartLimiter
 }
 
 func NewHub() *Hub {
-	return &Hub{clients: make(map[*Client]struct{})}
+	return &Hub{
+		clients: make(map[*Client]struct{}),
+		limiter: NewDebateStartLimiter(DebateStartLimiterConfig{}),
+	}
+}
+
+func (h *Hub) allowDebateStart(ip string, now time.Time) error {
+	if h == nil || h.limiter == nil {
+		return nil
+	}
+	return h.limiter.Allow(ip, now)
 }
 
 func (h *Hub) register(c *Client) {
@@ -91,10 +127,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Hub.register(client)
 	defer h.Hub.unregister(client)
 	go client.writeLoop(ctx, cancel)
-	client.readLoop(ctx, h.Runner)
+	client.readLoop(ctx, h.Runner, h.Hub, clientIP(r.RemoteAddr))
 }
 
-func (c *Client) readLoop(ctx context.Context, runner debate.Runner) {
+func (c *Client) readLoop(ctx context.Context, runner debate.Runner, hub *Hub, ip string) {
 	defer c.cancelSession()
 	for {
 		_, data, err := c.conn.Read(ctx)
@@ -108,6 +144,15 @@ func (c *Client) readLoop(ctx context.Context, runner debate.Runner) {
 		}
 		if inbound.Action != protocol.ActionStartDebate {
 			c.enqueue(protocol.OutboundEvent{Type: protocol.EventError, Message: "unknown action"})
+			continue
+		}
+		now := time.Now()
+		if err := hub.allowDebateStart(ip, now); err != nil {
+			c.enqueue(protocol.OutboundEvent{Type: protocol.EventError, Message: err.Error()})
+			continue
+		}
+		if err := c.tryStartDebate(now); err != nil {
+			c.enqueue(protocol.OutboundEvent{Type: protocol.EventError, Message: err.Error()})
 			continue
 		}
 		sessionCtx, cancel := context.WithCancel(ctx)

@@ -15,6 +15,22 @@ import (
 	"llmdebate/internal/protocol"
 )
 
+func TestClientRateLimitsDebateStarts(t *testing.T) {
+	client := NewClient(nil)
+	client.debateStartMinInterval = 50 * time.Millisecond
+
+	if err := client.tryStartDebate(time.Now()); err != nil {
+		t.Fatalf("first start: %v", err)
+	}
+	if err := client.tryStartDebate(time.Now()); err == nil {
+		t.Fatal("expected rate limit on immediate second start")
+	}
+
+	if err := client.tryStartDebate(time.Now().Add(60 * time.Millisecond)); err != nil {
+		t.Fatalf("start after interval: %v", err)
+	}
+}
+
 func TestClientCancelsPreviousSession(t *testing.T) {
 	client := NewClient(nil)
 	ctx := context.Background()

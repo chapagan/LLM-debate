@@ -6,23 +6,27 @@ import (
 	"os"
 	"path/filepath"
 
-	"llmdebate/internal/ai"
 	"llmdebate/internal/debate"
 	appws "llmdebate/internal/ws"
 )
 
+const defaultListenAddr = "127.0.0.1:8080"
+
 func main() {
-	addr := env("ADDR", ":8080")
-	streamer := ai.Streamer(ai.NewMockStreamer())
-	if key := os.Getenv("OPENAI_API_KEY"); key != "" {
-		streamer = ai.NewOpenAIStreamer(ai.OpenAIConfig{
-			APIKey: key,
-			Model:  env("OPENAI_MODEL", "gpt-5.5"),
-		})
-		log.Printf("using OpenAI streamer")
-	} else {
-		log.Printf("OPENAI_API_KEY not set; using mock streamer")
+	addr := env("ADDR", defaultListenAddr)
+	streamer, provider, err := selectStreamer(streamerOptions{
+		Provider:      env("AI_PROVIDER", ""),
+		OpenAIAPIKey:  os.Getenv("OPENAI_API_KEY"),
+		OpenAIModel:   env("OPENAI_MODEL", "gpt-5.5"),
+		CursorAPIKey:  os.Getenv("CURSOR_API_KEY"),
+		CursorBaseURL: os.Getenv("CURSOR_BASE_URL"),
+		CursorModel:   env("CURSOR_MODEL", "composer-2.5"),
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
+	log.Printf("using %s streamer", provider)
+
 	hub := appws.NewHub()
 	runner := debate.Runner{Streamer: streamer}
 	mux := http.NewServeMux()

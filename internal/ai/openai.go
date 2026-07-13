@@ -37,7 +37,7 @@ func NewOpenAIStreamer(cfg OpenAIConfig) *OpenAIStreamer {
 	}
 	client := cfg.Client
 	if client == nil {
-		client = &http.Client{Timeout: 0}
+		client = defaultHTTPClient()
 	}
 	return &OpenAIStreamer{apiKey: cfg.APIKey, model: model, baseURL: baseURL, client: client}
 }
