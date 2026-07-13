@@ -61,6 +61,41 @@ func TestSelectStreamerCursor(t *testing.T) {
 	}
 }
 
+func TestSelectStreamerClaude(t *testing.T) {
+	streamer, name, err := selectStreamer(streamerOptions{
+		Provider:        "claude",
+		AnthropicAPIKey: "anthropic-key",
+		AnthropicModel:  "claude-sonnet-4-5",
+	})
+	if err != nil {
+		t.Fatalf("selectStreamer: %v", err)
+	}
+	if name != "claude" {
+		t.Fatalf("name = %q, want claude", name)
+	}
+	if _, ok := streamer.(*ai.AnthropicStreamer); !ok {
+		t.Fatalf("streamer type = %T, want *ai.AnthropicStreamer", streamer)
+	}
+}
+
+func TestSelectStreamerClaudeRequiresKeyAndModel(t *testing.T) {
+	_, _, err := selectStreamer(streamerOptions{Provider: "claude", AnthropicModel: "claude-sonnet-4-5"})
+	if err == nil {
+		t.Fatal("expected error for missing Anthropic API key")
+	}
+	if !strings.Contains(err.Error(), "ANTHROPIC_API_KEY") {
+		t.Fatalf("error = %v", err)
+	}
+
+	_, _, err = selectStreamer(streamerOptions{Provider: "claude", AnthropicAPIKey: "anthropic-key"})
+	if err == nil {
+		t.Fatal("expected error for missing Anthropic model")
+	}
+	if !strings.Contains(err.Error(), "ANTHROPIC_MODEL") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestSelectStreamerUnknownProvider(t *testing.T) {
 	_, _, err := selectStreamer(streamerOptions{Provider: "anthropic"})
 	if err == nil {
@@ -81,8 +116,8 @@ func TestSelectStreamerOpenAIRequiresAPIKey(t *testing.T) {
 	}
 }
 
-func TestSelectStreamerCursorRequiresKeyAndBaseURL(t *testing.T) {
-	_, _, err := selectStreamer(streamerOptions{Provider: "cursor", CursorAPIKey: "cursor-key"})
+func TestSelectStreamerCursorRequiresKeyBaseURLAndModel(t *testing.T) {
+	_, _, err := selectStreamer(streamerOptions{Provider: "cursor", CursorAPIKey: "cursor-key", CursorModel: "composer-2.5"})
 	if err == nil {
 		t.Fatal("expected error for missing Cursor base URL")
 	}
@@ -90,11 +125,23 @@ func TestSelectStreamerCursorRequiresKeyAndBaseURL(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 
-	_, _, err = selectStreamer(streamerOptions{Provider: "cursor", CursorBaseURL: "http://127.0.0.1:9000/v1"})
+	_, _, err = selectStreamer(streamerOptions{Provider: "cursor", CursorBaseURL: "http://127.0.0.1:9000/v1", CursorModel: "composer-2.5"})
 	if err == nil {
 		t.Fatal("expected error for missing Cursor API key")
 	}
 	if !strings.Contains(err.Error(), "CURSOR_API_KEY") {
+		t.Fatalf("error = %v", err)
+	}
+
+	_, _, err = selectStreamer(streamerOptions{
+		Provider:      "cursor",
+		CursorAPIKey:  "cursor-key",
+		CursorBaseURL: "http://127.0.0.1:9000/v1",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing Cursor model")
+	}
+	if !strings.Contains(err.Error(), "CURSOR_MODEL") {
 		t.Fatalf("error = %v", err)
 	}
 }

@@ -31,9 +31,9 @@ func NewChatCompletionsStreamer(cfg ChatCompletionsConfig) (*ChatCompletionsStre
 	if baseURL == "" {
 		return nil, errors.New("chat completions base URL is required")
 	}
-	model := cfg.Model
+	model := strings.TrimSpace(cfg.Model)
 	if model == "" {
-		model = "composer-2.5"
+		return nil, errors.New("chat completions model is required")
 	}
 	client := cfg.Client
 	if client == nil {

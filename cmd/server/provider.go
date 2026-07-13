@@ -8,12 +8,14 @@ import (
 )
 
 type streamerOptions struct {
-	Provider      string
-	OpenAIAPIKey  string
-	OpenAIModel   string
-	CursorAPIKey  string
-	CursorBaseURL string
-	CursorModel   string
+	Provider         string
+	OpenAIAPIKey     string
+	OpenAIModel      string
+	CursorAPIKey     string
+	CursorBaseURL    string
+	CursorModel      string
+	AnthropicAPIKey  string
+	AnthropicModel   string
 }
 
 func selectStreamer(opts streamerOptions) (ai.Streamer, string, error) {
@@ -40,6 +42,9 @@ func selectStreamer(opts streamerOptions) (ai.Streamer, string, error) {
 		if opts.CursorBaseURL == "" {
 			return nil, "", fmt.Errorf("AI_PROVIDER=cursor requires CURSOR_BASE_URL")
 		}
+		if opts.CursorModel == "" {
+			return nil, "", fmt.Errorf("AI_PROVIDER=cursor requires CURSOR_MODEL")
+		}
 		streamer, err := ai.NewChatCompletionsStreamer(ai.ChatCompletionsConfig{
 			APIKey:  opts.CursorAPIKey,
 			Model:   opts.CursorModel,
@@ -49,7 +54,22 @@ func selectStreamer(opts streamerOptions) (ai.Streamer, string, error) {
 			return nil, "", err
 		}
 		return streamer, "cursor", nil
+	case "claude":
+		if opts.AnthropicAPIKey == "" {
+			return nil, "", fmt.Errorf("AI_PROVIDER=claude requires ANTHROPIC_API_KEY")
+		}
+		if opts.AnthropicModel == "" {
+			return nil, "", fmt.Errorf("AI_PROVIDER=claude requires ANTHROPIC_MODEL")
+		}
+		streamer, err := ai.NewAnthropicStreamer(ai.AnthropicConfig{
+			APIKey: opts.AnthropicAPIKey,
+			Model:  opts.AnthropicModel,
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return streamer, "claude", nil
 	default:
-		return nil, "", fmt.Errorf("unsupported AI_PROVIDER %q (want mock, openai, or cursor)", opts.Provider)
+		return nil, "", fmt.Errorf("unsupported AI_PROVIDER %q (want mock, openai, cursor, or claude)", opts.Provider)
 	}
 }

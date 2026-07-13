@@ -15,12 +15,14 @@ const defaultListenAddr = "127.0.0.1:8080"
 func main() {
 	addr := env("ADDR", defaultListenAddr)
 	streamer, provider, err := selectStreamer(streamerOptions{
-		Provider:      env("AI_PROVIDER", ""),
-		OpenAIAPIKey:  os.Getenv("OPENAI_API_KEY"),
-		OpenAIModel:   env("OPENAI_MODEL", "gpt-5.5"),
-		CursorAPIKey:  os.Getenv("CURSOR_API_KEY"),
-		CursorBaseURL: os.Getenv("CURSOR_BASE_URL"),
-		CursorModel:   env("CURSOR_MODEL", "composer-2.5"),
+		Provider:        env("AI_PROVIDER", ""),
+		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
+		OpenAIModel:     env("OPENAI_MODEL", "gpt-5.5"),
+		CursorAPIKey:    os.Getenv("CURSOR_API_KEY"),
+		CursorBaseURL:   os.Getenv("CURSOR_BASE_URL"),
+		CursorModel:     os.Getenv("CURSOR_MODEL"),
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		AnthropicModel:  os.Getenv("ANTHROPIC_MODEL"),
 	})
 	if err != nil {
 		log.Fatal(err)

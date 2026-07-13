@@ -21,6 +21,10 @@ HAD_CURSOR_BASE_URL=${CURSOR_BASE_URL+x}
 EXISTING_CURSOR_BASE_URL=${CURSOR_BASE_URL-}
 HAD_CURSOR_MODEL=${CURSOR_MODEL+x}
 EXISTING_CURSOR_MODEL=${CURSOR_MODEL-}
+HAD_ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY+x}
+EXISTING_ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY-}
+HAD_ANTHROPIC_MODEL=${ANTHROPIC_MODEL+x}
+EXISTING_ANTHROPIC_MODEL=${ANTHROPIC_MODEL-}
 
 if [ -f .env ]; then
   set -a
@@ -48,6 +52,12 @@ if [ "$HAD_CURSOR_BASE_URL" ]; then
 fi
 if [ "$HAD_CURSOR_MODEL" ]; then
   export CURSOR_MODEL="$EXISTING_CURSOR_MODEL"
+fi
+if [ "$HAD_ANTHROPIC_API_KEY" ]; then
+  export ANTHROPIC_API_KEY="$EXISTING_ANTHROPIC_API_KEY"
+fi
+if [ "$HAD_ANTHROPIC_MODEL" ]; then
+  export ANTHROPIC_MODEL="$EXISTING_ANTHROPIC_MODEL"
 fi
 
 . "$ROOT_DIR/scripts/lib/go-version.sh"
@@ -86,6 +96,9 @@ case "$PROVIDER" in
     ;;
   cursor)
     echo "Using Cursor OpenAI-compatible streaming."
+    ;;
+  claude)
+    echo "Using Anthropic Claude streaming."
     ;;
 esac
 

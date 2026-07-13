@@ -8,24 +8,30 @@ import (
 	"testing"
 )
 
-func TestChatCompletionsStreamerReadsDeltaContent(t *testing.T) {
+func TestAnthropicStreamerReadsTextDeltas(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat/completions" {
+		if r.URL.Path != "/v1/messages" {
 			t.Fatalf("path = %s", r.URL.Path)
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer cursor-key" {
-			t.Fatalf("authorization = %q", got)
+		if got := r.Header.Get("x-api-key"); got != "anthropic-key" {
+			t.Fatalf("x-api-key = %q", got)
+		}
+		if got := r.Header.Get("anthropic-version"); got == "" {
+			t.Fatal("missing anthropic-version header")
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = w.Write([]byte(`data: {"choices":[{"delta":{"content":"Hello"}}]}` + "\n\n"))
-		_, _ = w.Write([]byte(`data: {"choices":[{"delta":{"content":" world"}}]}` + "\n\n"))
-		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		_, _ = w.Write([]byte("event: content_block_delta\n"))
+		_, _ = w.Write([]byte(`data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}` + "\n\n"))
+		_, _ = w.Write([]byte("event: content_block_delta\n"))
+		_, _ = w.Write([]byte(`data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}` + "\n\n"))
+		_, _ = w.Write([]byte("event: message_stop\n"))
+		_, _ = w.Write([]byte(`data: {"type":"message_stop"}` + "\n\n"))
 	}))
 	defer server.Close()
 
-	streamer, err := NewChatCompletionsStreamer(ChatCompletionsConfig{
-		APIKey:  "cursor-key",
-		Model:   "composer-2.5",
+	streamer, err := NewAnthropicStreamer(AnthropicConfig{
+		APIKey:  "anthropic-key",
+		Model:   "claude-sonnet-4-5",
 		BaseURL: server.URL + "/v1",
 		Client:  server.Client(),
 	})
@@ -53,15 +59,15 @@ func TestChatCompletionsStreamerReadsDeltaContent(t *testing.T) {
 	}
 }
 
-func TestChatCompletionsStreamerReturnsHTTPStatusError(t *testing.T) {
+func TestAnthropicStreamerReturnsHTTPStatusError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()
 
-	streamer, err := NewChatCompletionsStreamer(ChatCompletionsConfig{
-		APIKey:  "cursor-key",
-		Model:   "composer-2.5",
+	streamer, err := NewAnthropicStreamer(AnthropicConfig{
+		APIKey:  "anthropic-key",
+		Model:   "claude-sonnet-4-5",
 		BaseURL: server.URL + "/v1",
 		Client:  server.Client(),
 	})
@@ -83,16 +89,17 @@ func TestChatCompletionsStreamerReturnsHTTPStatusError(t *testing.T) {
 	}
 }
 
-func TestChatCompletionsStreamerReturnsStreamError(t *testing.T) {
+func TestAnthropicStreamerReturnsStreamError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = w.Write([]byte(`data: {"error":{"message":"model unavailable"}}` + "\n\n"))
+		_, _ = w.Write([]byte("event: error\n"))
+		_, _ = w.Write([]byte(`data: {"type":"error","error":{"type":"api_error","message":"overloaded"}}` + "\n\n"))
 	}))
 	defer server.Close()
 
-	streamer, err := NewChatCompletionsStreamer(ChatCompletionsConfig{
-		APIKey:  "cursor-key",
-		Model:   "composer-2.5",
+	streamer, err := NewAnthropicStreamer(AnthropicConfig{
+		APIKey:  "anthropic-key",
+		Model:   "claude-sonnet-4-5",
 		BaseURL: server.URL + "/v1",
 		Client:  server.Client(),
 	})
@@ -109,26 +116,13 @@ func TestChatCompletionsStreamerReturnsStreamError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got result %q", result)
 	}
-	if !strings.Contains(err.Error(), "model unavailable") {
+	if !strings.Contains(err.Error(), "overloaded") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
-func TestNewChatCompletionsStreamerRequiresBaseURL(t *testing.T) {
-	_, err := NewChatCompletionsStreamer(ChatCompletionsConfig{APIKey: "cursor-key", Model: "composer-2.5"})
-	if err == nil {
-		t.Fatal("expected error for empty base URL")
-	}
-	if !strings.Contains(err.Error(), "base URL") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestNewChatCompletionsStreamerRequiresModel(t *testing.T) {
-	_, err := NewChatCompletionsStreamer(ChatCompletionsConfig{
-		APIKey:  "cursor-key",
-		BaseURL: "http://127.0.0.1:9000/v1",
-	})
+func TestNewAnthropicStreamerRequiresModel(t *testing.T) {
+	_, err := NewAnthropicStreamer(AnthropicConfig{APIKey: "anthropic-key"})
 	if err == nil {
 		t.Fatal("expected error for empty model")
 	}
