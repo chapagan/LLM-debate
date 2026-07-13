@@ -5,3 +5,4 @@ backend/tmp/
 .env
 .DS_Store
 bin/
+.cache
